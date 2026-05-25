@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getSettingsPath } from './ipc/context.js'
 import { registerIpcHandlers } from './ipc/registerIpc.js'
-import { initDatabase } from './services/database/index.js'
+import { initDatabase, isDatabaseReady } from './services/database/index.js'
 import { migrateSettingsFromJsonIfNeeded } from './services/settings/index.js'
 import { bootstrapComputerIndexOnLaunch, stopComputerIndex } from './services/indexer/index.js'
 
@@ -58,7 +58,10 @@ app.whenReady().then(async () => {
   }
 
   createWindow()
-  bootstrapComputerIndexOnLaunch()
+
+  if (isDatabaseReady()) {
+    bootstrapComputerIndexOnLaunch()
+  }
 })
 
 app.on('before-quit', () => {

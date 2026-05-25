@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ScrollShadow, SearchField, Surface, Typography } from '@heroui/react'
 import IndexStatusChip from '../../components/index/IndexStatusChip'
-import { INDEX_GROUP_LABELS, INDEX_GROUP_ORDER, indexItemToInstalledApp } from '../../lib/indexMappers'
+import IndexSearchKindTabs, { type IndexSearchKindFilter } from '../../components/index/IndexSearchKindTabs'
+import { INDEX_GROUP_LABELS, indexItemToInstalledApp } from '../../lib/indexMappers'
+import type { ComputerIndexKind } from '../../shared/types/computerIndex'
 import {
   File,
   FileArchive,
@@ -112,8 +114,11 @@ export default function ComputerPage({ onNavigate }: ComputerPageProps) {
   const [indexResults, setIndexResults] = useState<ComputerIndexItem[]>([])
   const [indexSearching, setIndexSearching] = useState(false)
   const [indexTotal, setIndexTotal] = useState(0)
+  const [searchKind, setSearchKind] = useState<IndexSearchKindFilter>('all')
+  const [kindCounts, setKindCounts] = useState<Partial<Record<IndexSearchKindFilter, number>>>({})
 
   const useIndexSearch = query.trim().length >= 3
+  const SEARCH_RESULT_LIMIT = 80
 
   const loadDirectory = useCallback(async (directoryPath: string | null) => {
     setLoading(true)
@@ -157,51 +162,107 @@ export default function ComputerPage({ onNavigate }: ComputerPageProps) {
     if (!useIndexSearch || !window.niuvisIndex?.search) {
       setIndexResults([])
       setIndexTotal(0)
+      setKindCounts({})
       return
     }
+
+    const keyword = query.trim()
+    let cancelled = false
 
     const timer = setTimeout(() => {
       void (async () => {
         setIndexSearching(true)
         setError(null)
+        setSearchKind('all')
 
         try {
-          const result = await window.niuvisIndex!.search({
-            query: query.trim(),
-            limit: 80,
-          })
+          const search = window.niuvisIndex!.search
+          const [all, app, document, image, file] = await Promise.all([
+            search({ query: keyword, limit: 1 }),
+            search({ query: keyword, kind: 'app', limit: 1 }),
+            search({ query: keyword, kind: 'document', limit: 1 }),
+            search({ query: keyword, kind: 'image', limit: 1 }),
+            search({ query: keyword, kind: 'file', limit: 1 }),
+          ])
 
-          setIndexResults(result.items)
-          setIndexTotal(result.total)
+          if (cancelled) return
+
+          const counts: Partial<Record<IndexSearchKindFilter, number>> = {
+            all: all.total,
+            app: app.total,
+            document: document.total,
+            image: image.total,
+            file: file.total,
+          }
+
+          setKindCounts(counts)
+
+          const list = await search({ query: keyword, limit: SEARCH_RESULT_LIMIT })
+
+          if (cancelled) return
+
+          setIndexResults(list.items)
+          setIndexTotal(list.total)
         } catch (err) {
-          setError(formatIpcError(err) || '搜索失败')
+          if (!cancelled) {
+            setError(formatIpcError(err) || '搜索失败')
+          }
         } finally {
-          setIndexSearching(false)
+          if (!cancelled) {
+            setIndexSearching(false)
+          }
         }
       })()
     }, 280)
 
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [query, useIndexSearch])
 
-  const groupedIndexResults = useMemo(() => {
-    const groups = new Map<string, ComputerIndexItem[]>()
+  const searchRequestIdRef = useRef(0)
 
-    for (const kind of INDEX_GROUP_ORDER) {
-      groups.set(kind, [])
-    }
+  const loadSearchForKind = useCallback(
+    async (kind: IndexSearchKindFilter) => {
+      if (!window.niuvisIndex?.search || !useIndexSearch) return
 
-    for (const item of indexResults) {
-      const bucket = groups.get(item.kind) ?? groups.get('file')!
-      bucket.push(item)
-    }
+      const keyword = query.trim()
+      const requestId = searchRequestIdRef.current + 1
+      searchRequestIdRef.current = requestId
+      setIndexSearching(true)
+      setError(null)
 
-    return INDEX_GROUP_ORDER.map((kind) => ({
-      kind,
-      label: INDEX_GROUP_LABELS[kind] ?? kind,
-      items: groups.get(kind) ?? [],
-    })).filter((group) => group.items.length > 0)
-  }, [indexResults])
+      try {
+        const result = await window.niuvisIndex.search({
+          query: keyword,
+          kind: kind === 'all' ? undefined : (kind as ComputerIndexKind),
+          limit: SEARCH_RESULT_LIMIT,
+        })
+
+        if (searchRequestIdRef.current !== requestId) return
+
+        setIndexResults(result.items)
+        setIndexTotal(result.total)
+      } catch (err) {
+        if (searchRequestIdRef.current === requestId) {
+          setError(formatIpcError(err) || '搜索失败')
+        }
+      } finally {
+        if (searchRequestIdRef.current === requestId) {
+          setIndexSearching(false)
+        }
+      }
+    },
+    [query, useIndexSearch],
+  )
+
+  const handleSearchKindChange = (kind: IndexSearchKindFilter) => {
+    setSearchKind(kind)
+    void loadSearchForKind(kind)
+  }
+
+  const activeSearchKindLabel = INDEX_GROUP_LABELS[searchKind] ?? '全部'
 
   const filteredEntries = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase()
@@ -258,20 +319,20 @@ export default function ComputerPage({ onNavigate }: ComputerPageProps) {
     await loadDirectory(null)
   }
 
-  const navigateToPrimarySearchGroup = () => {
+  const navigateToSearchPage = () => {
     const keyword = query.trim()
 
-    if (keyword.length < 3 || !onNavigate || groupedIndexResults.length === 0) {
+    if (keyword.length < 3 || !onNavigate || indexTotal === 0) {
       return
     }
 
-    const primaryKind = groupedIndexResults[0].kind
+    const targetKind = searchKind === 'all' ? 'file' : searchKind
 
     onNavigate({
-      page: pageForIndexKind(primaryKind),
+      page: pageForIndexKind(targetKind),
       searchQuery: keyword,
-      indexKind: primaryKind,
-      openIndexView: primaryKind === 'document' || primaryKind === 'image',
+      indexKind: targetKind,
+      openIndexView: targetKind === 'document' || targetKind === 'image',
     })
   }
 
@@ -296,13 +357,13 @@ export default function ComputerPage({ onNavigate }: ComputerPageProps) {
               value={query}
               variant="secondary"
               onChange={setQuery}
-              onSubmit={navigateToPrimarySearchGroup}
+              onSubmit={navigateToSearchPage}
             >
               <SearchField.Group className="h-10 border border-white/10 bg-[#2a2a2a] px-3">
                 <SearchField.SearchIcon className="size-4 !text-white/50" />
                 <SearchField.Input
                   className="text-white placeholder:text-white/40"
-                  placeholder="搜索索引（至少 3 个字，回车跳转）..."
+                  placeholder="搜索索引（至少 3 个字，先选类型）..."
                 />
                 <SearchField.ClearButton className="!text-white/55" />
               </SearchField.Group>
@@ -350,60 +411,67 @@ export default function ComputerPage({ onNavigate }: ComputerPageProps) {
             <Surface className="py-16 text-center text-white/50" variant="transparent">
               正在搜索本地索引…
             </Surface>
-          ) : groupedIndexResults.length === 0 ? (
+          ) : (kindCounts.all ?? 0) === 0 ? (
             <Surface className="flex h-[50vh] flex-col items-center justify-center text-center" variant="transparent">
               <Typography.Heading className="!text-white" level={2}>
                 未找到匹配项
               </Typography.Heading>
               <Typography.Paragraph className="mt-2 max-w-md !text-white/50" size="sm">
-                {indexTotal === 0
-                  ? '请先完成索引扫描，或调整设置中的索引目录。'
-                  : '换一个关键词试试，支持文件名、路径与文档内容。'}
+                换一个关键词试试，支持文件名、路径与文档内容。
               </Typography.Paragraph>
             </Surface>
           ) : (
-            <Surface className="space-y-6" variant="transparent">
+            <Surface className="space-y-4" variant="transparent">
+              <IndexSearchKindTabs active={searchKind} counts={kindCounts} onChange={handleSearchKindChange} />
+
               <Typography.Paragraph className="!text-white/45" size="sm">
-                共 {indexTotal} 条结果（显示前 {indexResults.length} 条）
-                {groupedIndexResults[0] && onNavigate && (
-                  <> · 按回车打开「{INDEX_GROUP_LABELS[groupedIndexResults[0].kind] ?? groupedIndexResults[0].kind}」页</>
+                {searchKind === 'all'
+                  ? `全部共 ${kindCounts.all ?? indexTotal} 条，当前显示前 ${indexResults.length} 条`
+                  : `${activeSearchKindLabel} ${indexTotal} 条，显示前 ${indexResults.length} 条`}
+                {onNavigate && indexResults.length > 0 && (
+                  <> · 回车打开「{activeSearchKindLabel === '全部' ? '文件' : activeSearchKindLabel}」页查看更多</>
                 )}
               </Typography.Paragraph>
-              {groupedIndexResults.map((group) => (
-                <Surface key={group.kind} variant="transparent">
-                  <Typography className="mb-3 text-sm font-medium !text-white/70" type="body-sm">
-                    {group.label}
-                  </Typography>
-                  <Surface className="overflow-hidden rounded-lg border border-white/8 bg-[#242424]" variant="transparent">
-                    {group.items.map((item) => (
-                      <Surface
-                        key={item.id}
-                        className="flex cursor-default items-start justify-between gap-4 border-b border-white/[0.045] px-4 py-3 last:border-b-0 hover:bg-white/[0.06]"
-                        role="button"
-                        tabIndex={0}
-                        variant="transparent"
-                        onDoubleClick={() => void openIndexItem(item)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') void openIndexItem(item)
-                        }}
-                      >
-                        <Surface className="min-w-0 flex-1" variant="transparent">
+
+              {indexResults.length === 0 ? (
+                <Surface className="py-12 text-center text-white/50" variant="transparent">
+                  该类型下没有匹配项，请切换其他类型
+                </Surface>
+              ) : (
+                <Surface className="overflow-hidden rounded-lg border border-white/8 bg-[#242424]" variant="transparent">
+                  {indexResults.map((item) => (
+                    <Surface
+                      key={item.id}
+                      className="flex cursor-default items-start justify-between gap-4 border-b border-white/[0.045] px-4 py-3 last:border-b-0 hover:bg-white/[0.06]"
+                      role="button"
+                      tabIndex={0}
+                      variant="transparent"
+                      onDoubleClick={() => void openIndexItem(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') void openIndexItem(item)
+                      }}
+                    >
+                      <Surface className="min-w-0 flex-1" variant="transparent">
+                        <Surface className="mb-1 flex items-center gap-2" variant="transparent">
                           <Typography className="truncate font-medium !text-white/90" type="body-sm">
                             {item.name}
                           </Typography>
-                          <Typography className="mt-1 truncate font-mono text-xs !text-white/45" type="body-xs">
-                            {item.path}
+                          <Typography className="shrink-0 text-xs !text-white/40" type="body-xs">
+                            {INDEX_GROUP_LABELS[item.kind] ?? item.kind}
                           </Typography>
-                          <IndexHighlight text={item.highlight ?? item.contentSnippet} />
                         </Surface>
-                        <Typography className="shrink-0 text-xs !text-white/40" type="body-xs">
-                          {formatDate(item.modifiedAt)}
+                        <Typography className="truncate font-mono text-xs !text-white/45" type="body-xs">
+                          {item.path}
                         </Typography>
+                        <IndexHighlight text={item.highlight ?? item.contentSnippet} />
                       </Surface>
-                    ))}
-                  </Surface>
+                      <Typography className="shrink-0 text-xs !text-white/40" type="body-xs">
+                        {formatDate(item.modifiedAt)}
+                      </Typography>
+                    </Surface>
+                  ))}
                 </Surface>
-              ))}
+              )}
             </Surface>
           )
         ) : loading ? (

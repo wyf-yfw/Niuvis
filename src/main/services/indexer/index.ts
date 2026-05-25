@@ -5,6 +5,7 @@ import {
   listComputerIndexItems as listIndexRows,
   searchComputerIndex,
 } from '../database/indexItems.js'
+import { isDatabaseReady } from '../database/index.js'
 import { loadAppSettings } from '../settings/store.js'
 import { indexInstalledApps } from './apps.js'
 import { indexFilesystem } from './files.js'
@@ -149,6 +150,11 @@ export async function stopComputerIndex() {
 
 /** 应用启动时：库中无条目才全量索引；已有条目仅复用 SQLite（不自动开实时监听，避免 ENOSPC） */
 export function bootstrapComputerIndexOnLaunch() {
+  if (!isDatabaseReady()) {
+    console.warn('[Niuvis] 数据库未就绪，跳过启动时自动索引（请先执行 npm run rebuild:electron）')
+    return
+  }
+
   const persisted = loadPersistedIndexStatus()
   const itemCount = countComputerIndexItems()
 

@@ -6,12 +6,14 @@
   "main": "main.js",
   "scripts": {
     "build:main": "tsc -p tsconfig.main.json && node scripts/copy-main-assets.mjs",
-    "dev": "npm run build:main && concurrently -k -n vite,main,electron -c blue,green,magenta \"vite\" \"tsc -p tsconfig.main.json -w\" \"wait-on http://127.0.0.1:5173 && NODE_ENV=development electron .\"",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
+    "dev": "npm run build:main && npm run rebuild:electron && concurrently -k -n vite,main,electron -c blue,green,magenta \"vite\" \"tsc -p tsconfig.main.json -w\" \"wait-on http://127.0.0.1:5173 && NODE_ENV=development electron .\"",
     "build": "npm run build:main && vite build",
     "preview": "vite preview",
-    "start": "npm run build:main && electron .",
-    "test": "npm run build:main && npm rebuild better-sqlite3 && node --test src/main/**/*.test.js && electron-rebuild -f -w better-sqlite3",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "start": "npm run build:main && npm run rebuild:electron && electron .",
+    "test": "npm run build:main && npm run rebuild:node && node --test \"src/main/**/*.test.js\" && npm run rebuild:electron",
+    "postinstall": "npm run rebuild:electron"
   },
   "repository": {
     "type": "git",

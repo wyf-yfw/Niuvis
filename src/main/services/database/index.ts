@@ -25,6 +25,10 @@ export function initDatabase({ userDataPath, filename = 'niuvis.db' }: InitDatab
   return db
 }
 
+export function isDatabaseReady() {
+  return db !== null
+}
+
 export function getDb() {
   if (!db) {
     throw new Error('数据库尚未初始化，请先调用 initDatabase')
