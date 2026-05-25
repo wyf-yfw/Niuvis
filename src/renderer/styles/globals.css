@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+:root {
+  color-scheme: light;
+  --accent: oklch(0.62 0.16 165);
+  --accent-foreground: oklch(0.99 0 0);
+  --background: oklch(0.974 0.008 95);
+  --foreground: oklch(0.22 0.006 285);
+  background: var(--background);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: "SF Pro Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+#root {
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+textarea {
+  scrollbar-width: thin;
+}

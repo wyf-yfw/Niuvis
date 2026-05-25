@@ -51,7 +51,7 @@ src/main/
 
 ## src/renderer — 渲染进程
 
-React 前端，负责 UI 展示与用户交互。
+React 前端，负责 UI 展示与用户交互。使用 **HeroUI** 作为组件库。
 
 ```
 src/renderer/

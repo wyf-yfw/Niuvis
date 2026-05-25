@@ -12,7 +12,8 @@ build/
 .idea/
 *.swp
 *.swo
-
+.codex/
+.agents/
 # OS
 .DS_Store
 Thumbs.db
