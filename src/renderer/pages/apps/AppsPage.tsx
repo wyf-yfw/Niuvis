@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Chip, Input, ScrollShadow, Surface, Typography } from '@heroui/react'
+import { formatIpcError } from '../../lib/ipcError'
+import { getNonElectronHint } from '../../lib/runtime'
 import type { InstalledApp } from '../../types/niuvis'
 
 function getAppInitial(name: string) {
@@ -59,14 +61,14 @@ export default function AppsPage() {
 
     try {
       if (!window.niuvisApps) {
-        throw new Error('应用扫描接口只在 Electron 窗口中可用')
+        throw new Error(getNonElectronHint())
       }
 
       const result = await window.niuvisApps.listInstalled({ forceRefresh })
       setApps(result.apps)
       setDataSource(result.source)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '读取已安装应用失败')
+      setError(formatIpcError(err) || '读取已安装应用失败')
     } finally {
       setLoading(false)
     }
@@ -97,7 +99,7 @@ export default function AppsPage() {
     try {
       await window.niuvisApps.open(app)
     } catch (err) {
-      setError(err instanceof Error ? `无法打开 ${app.name}：${err.message}` : `无法打开 ${app.name}`)
+      setError(formatIpcError(err) ? `无法打开 ${app.name}：${formatIpcError(err)}` : `无法打开 ${app.name}`)
     } finally {
       setOpeningId(null)
     }

@@ -1,69 +1,39 @@
-export interface LibraryItem {
-  id: string
-  kind: 'documents' | 'gallery'
-  name: string
-  type: string
-  size: string
-  addedAt: string
-  modifiedAt: string
-  storedPath: string
-  previewDataUrl?: string
-}
+import type { InstalledApp, InstalledAppsResult } from '../../shared/types/apps'
+import type { ChatMessage, ChatModelSettings } from '../../shared/types/chat'
+import type { DirectoryListing, FileBrowserItem } from '../../shared/types/computer'
+import type { IpcErrorCode } from '../../shared/types/ipc'
+import type { LibraryItem, LibraryKind } from '../../shared/types/library'
+import type {
+  AppSettings,
+  ModelConnectionTestResult,
+  ModelProfile,
+} from '../../shared/types/settings'
 
-export interface InstalledApp {
-  id: string
-  name: string
-  description?: string
-  command?: string
-  icon?: string
-  iconDataUrl?: string
-  iconPath?: string
-  path?: string
-  source?: string
-  category?: string
-}
-
-export interface FileBrowserItem {
-  id: string
-  name: string
-  path: string
-  isDirectory: boolean
-  type: string
-  size?: string
-  bytes?: number
-  modifiedAt?: string
-}
-
-export interface DirectoryListing {
-  path: string
-  parentPath: string
-  items: FileBrowserItem[]
-}
-
-export interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-}
-
-export interface ChatModelSettings {
-  apiKey: string
-  baseUrl: string
-  model: string
+export type {
+  InstalledApp,
+  InstalledAppsResult,
+  ChatMessage,
+  ChatModelSettings,
+  DirectoryListing,
+  FileBrowserItem,
+  LibraryItem,
+  LibraryKind,
+  IpcErrorCode,
+  AppSettings,
+  ModelProfile,
+  ModelConnectionTestResult,
 }
 
 declare global {
   interface Window {
+    __NIUVIS_ELECTRON__?: boolean
     niuvisApps?: {
-      listInstalled: (options?: { forceRefresh?: boolean }) => Promise<{
-        apps: InstalledApp[]
-        source: 'cache' | 'scan'
-      }>
+      listInstalled: (options?: { forceRefresh?: boolean }) => Promise<InstalledAppsResult>
       open: (appToOpen: InstalledApp) => Promise<boolean>
     }
     niuvisLibrary?: {
-      list: (kind: 'documents' | 'gallery') => Promise<LibraryItem[]>
-      upload: (kind: 'documents' | 'gallery') => Promise<LibraryItem[]>
+      list: (kind: LibraryKind) => Promise<LibraryItem[]>
+      upload: (kind: LibraryKind) => Promise<LibraryItem[]>
       open: (storedPath: string) => Promise<string>
     }
     niuvisComputer?: {
@@ -75,8 +45,12 @@ declare global {
       send: (messages: ChatMessage[]) => Promise<string>
     }
     niuvisSettings?: {
+      get: () => Promise<AppSettings>
+      save: (settings: AppSettings) => Promise<AppSettings>
       getChat: () => Promise<ChatModelSettings>
       saveChat: (chat: ChatModelSettings) => Promise<ChatModelSettings>
+      testConnection: (profile: ModelProfile) => Promise<ModelConnectionTestResult>
+      pickDirectory: () => Promise<string | null>
     }
   }
 }

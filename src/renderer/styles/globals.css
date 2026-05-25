@@ -42,3 +42,10 @@ textarea {
 textarea {
   scrollbar-width: thin;
 }
+
+/* 设置弹窗：Select 下拉默认 portal 到 body，需显式深色 token */
+.niuvis-settings-popover.select__popover,
+.select__popover.niuvis-settings-popover {
+  color-scheme: dark;
+}
+

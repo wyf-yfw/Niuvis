@@ -1,27 +1,82 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+/** 与 src/shared/constants/channels.json 保持同步 */
+const IPC_CHANNELS = {
+  apps: {
+    listInstalled: 'apps:list-installed',
+    open: 'apps:open',
+  },
+  library: {
+    list: 'library:list',
+    upload: 'library:upload',
+    open: 'library:open',
+  },
+  computer: {
+    listRoots: 'computer:list-roots',
+    listDirectory: 'computer:list-directory',
+    open: 'computer:open',
+  },
+  chat: {
+    send: 'chat:send',
+  },
+  settings: {
+    get: 'settings:get',
+    save: 'settings:save',
+    getChat: 'settings:get-chat',
+    saveChat: 'settings:save-chat',
+    testConnection: 'settings:test-connection',
+    pickDirectory: 'settings:pick-directory',
+  },
+  system: {
+    databaseStatus: 'system:database-status',
+  },
+}
+
+async function invoke(channel, ...args) {
+  const result = await ipcRenderer.invoke(channel, ...args)
+
+  if (result && typeof result === 'object' && result.ok === true) {
+    return result.data
+  }
+
+  if (result && typeof result === 'object' && result.ok === false && result.error) {
+    const error = new Error(result.error.message)
+    error.name = 'NiuvisIpcError'
+    error.code = result.error.code
+    throw error
+  }
+
+  return result
+}
+
+contextBridge.exposeInMainWorld('__NIUVIS_ELECTRON__', true)
+
 contextBridge.exposeInMainWorld('niuvisApps', {
-  listInstalled: (options) => ipcRenderer.invoke('apps:list-installed', options),
-  open: (appToOpen) => ipcRenderer.invoke('apps:open', appToOpen),
+  listInstalled: (options) => invoke(IPC_CHANNELS.apps.listInstalled, options),
+  open: (appToOpen) => invoke(IPC_CHANNELS.apps.open, appToOpen),
 })
 
 contextBridge.exposeInMainWorld('niuvisLibrary', {
-  list: (kind) => ipcRenderer.invoke('library:list', kind),
-  upload: (kind) => ipcRenderer.invoke('library:upload', kind),
-  open: (storedPath) => ipcRenderer.invoke('library:open', storedPath),
+  list: (kind) => invoke(IPC_CHANNELS.library.list, kind),
+  upload: (kind) => invoke(IPC_CHANNELS.library.upload, kind),
+  open: (storedPath) => invoke(IPC_CHANNELS.library.open, storedPath),
 })
 
 contextBridge.exposeInMainWorld('niuvisComputer', {
-  listRoots: () => ipcRenderer.invoke('computer:list-roots'),
-  listDirectory: (directoryPath) => ipcRenderer.invoke('computer:list-directory', directoryPath),
-  open: (itemPath) => ipcRenderer.invoke('computer:open', itemPath),
+  listRoots: () => invoke(IPC_CHANNELS.computer.listRoots),
+  listDirectory: (directoryPath) => invoke(IPC_CHANNELS.computer.listDirectory, directoryPath),
+  open: (itemPath) => invoke(IPC_CHANNELS.computer.open, itemPath),
 })
 
 contextBridge.exposeInMainWorld('niuvisChat', {
-  send: (messages) => ipcRenderer.invoke('chat:send', messages),
+  send: (messages) => invoke(IPC_CHANNELS.chat.send, messages),
 })
 
 contextBridge.exposeInMainWorld('niuvisSettings', {
-  getChat: () => ipcRenderer.invoke('settings:get-chat'),
-  saveChat: (chat) => ipcRenderer.invoke('settings:save-chat', chat),
+  get: () => invoke(IPC_CHANNELS.settings.get),
+  save: (settings) => invoke(IPC_CHANNELS.settings.save, settings),
+  getChat: () => invoke(IPC_CHANNELS.settings.getChat),
+  saveChat: (chat) => invoke(IPC_CHANNELS.settings.saveChat, chat),
+  testConnection: (profile) => invoke(IPC_CHANNELS.settings.testConnection, profile),
+  pickDirectory: () => invoke(IPC_CHANNELS.settings.pickDirectory),
 })

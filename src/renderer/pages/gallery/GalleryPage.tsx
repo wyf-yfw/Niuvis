@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Chip, Input, ScrollShadow, Surface, Typography } from '@heroui/react'
+import { formatIpcError } from '../../lib/ipcError'
+import { getNonElectronHint } from '../../lib/runtime'
 import type { LibraryItem } from '../../types/niuvis'
 
 function formatDate(value: string) {
@@ -21,11 +23,11 @@ export default function GalleryPage() {
     setError(null)
 
     try {
-      if (!window.niuvisLibrary) throw new Error('图库接口只在 Electron 窗口中可用')
+      if (!window.niuvisLibrary) throw new Error(getNonElectronHint())
 
       setItems(await window.niuvisLibrary.list('gallery'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : '读取图库失败')
+      setError(formatIpcError(err) || '读取图库失败')
     } finally {
       setLoading(false)
     }
@@ -55,7 +57,7 @@ export default function GalleryPage() {
       await window.niuvisLibrary.upload('gallery')
       await loadGallery()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '上传图片失败')
+      setError(formatIpcError(err) || '上传图片失败')
     } finally {
       setUploading(false)
     }

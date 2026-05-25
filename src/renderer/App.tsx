@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import NonElectronBanner from './components/NonElectronBanner'
 import Sidebar from './components/sidebar/Sidebar'
 import OfficePage from './pages/office/OfficePage'
 import ChatPage from './pages/chat/ChatPage'
@@ -38,9 +39,12 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} />
-      {renderPage()}
+    <div className="flex h-screen flex-col">
+      <NonElectronBanner />
+      <div className="flex min-h-0 flex-1">
+        <Sidebar activePage={activePage} onNavigate={setActivePage} />
+        {renderPage()}
+      </div>
     </div>
   )
 }

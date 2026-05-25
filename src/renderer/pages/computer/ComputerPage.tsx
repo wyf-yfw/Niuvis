@@ -10,6 +10,8 @@ import {
   Music,
   Video,
 } from 'lucide-react'
+import { formatIpcError } from '../../lib/ipcError'
+import { getNonElectronHint } from '../../lib/runtime'
 import type { DirectoryListing, FileBrowserItem } from '../../types/niuvis'
 
 function formatDate(value?: string) {
@@ -81,12 +83,12 @@ export default function ComputerPage() {
     setError(null)
 
     try {
-      if (!window.niuvisComputer) throw new Error('此电脑接口只在 Electron 窗口中可用')
+      if (!window.niuvisComputer) throw new Error(getNonElectronHint())
 
       setRoots(await window.niuvisComputer.listRoots())
       setListing(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '读取磁盘失败')
+      setError(formatIpcError(err) || '读取磁盘失败')
     } finally {
       setLoading(false)
     }
@@ -98,11 +100,11 @@ export default function ComputerPage() {
     setQuery('')
 
     try {
-      if (!window.niuvisComputer) throw new Error('此电脑接口只在 Electron 窗口中可用')
+      if (!window.niuvisComputer) throw new Error(getNonElectronHint())
 
       setListing(await window.niuvisComputer.listDirectory(directoryPath))
     } catch (err) {
-      setError(err instanceof Error ? err.message : '读取目录失败')
+      setError(formatIpcError(err) || '读取目录失败')
     } finally {
       setLoading(false)
     }

@@ -1,0 +1,30 @@
+{
+  "apps": {
+    "listInstalled": "apps:list-installed",
+    "open": "apps:open"
+  },
+  "library": {
+    "list": "library:list",
+    "upload": "library:upload",
+    "open": "library:open"
+  },
+  "computer": {
+    "listRoots": "computer:list-roots",
+    "listDirectory": "computer:list-directory",
+    "open": "computer:open"
+  },
+  "chat": {
+    "send": "chat:send"
+  },
+  "settings": {
+    "get": "settings:get",
+    "save": "settings:save",
+    "getChat": "settings:get-chat",
+    "saveChat": "settings:save-chat",
+    "testConnection": "settings:test-connection",
+    "pickDirectory": "settings:pick-directory"
+  },
+  "system": {
+    "databaseStatus": "system:database-status"
+  }
+}

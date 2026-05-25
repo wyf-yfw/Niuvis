@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Chip, Input, ScrollShadow, Surface, Typography } from '@heroui/react'
+import { formatIpcError } from '../../lib/ipcError'
+import { getNonElectronHint } from '../../lib/runtime'
 import type { LibraryItem } from '../../types/niuvis'
 
 const typeColor: Record<string, 'accent' | 'danger' | 'success' | 'warning' | 'default'> = {
@@ -35,11 +37,11 @@ export default function DocumentsPage() {
     setError(null)
 
     try {
-      if (!window.niuvisLibrary) throw new Error('文档库接口只在 Electron 窗口中可用')
+      if (!window.niuvisLibrary) throw new Error(getNonElectronHint())
 
       setItems(await window.niuvisLibrary.list('documents'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : '读取文档失败')
+      setError(formatIpcError(err) || '读取文档失败')
     } finally {
       setLoading(false)
     }
@@ -69,7 +71,7 @@ export default function DocumentsPage() {
       await window.niuvisLibrary.upload('documents')
       await loadDocuments()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '上传文档失败')
+      setError(formatIpcError(err) || '上传文档失败')
     } finally {
       setUploading(false)
     }

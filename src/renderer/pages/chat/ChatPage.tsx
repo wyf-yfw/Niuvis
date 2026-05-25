@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Button, Input, ScrollShadow, Avatar } from '@heroui/react'
 import { Send } from 'lucide-react'
+import { formatIpcError } from '../../lib/ipcError'
+import { getNonElectronHint } from '../../lib/runtime'
 import type { ChatMessage } from '../../types/niuvis'
 
 function createMessageId() {
@@ -32,7 +34,7 @@ export default function ChatPage() {
 
     try {
       if (!window.niuvisChat) {
-        throw new Error('对话接口只在 Electron 窗口中可用')
+        throw new Error(getNonElectronHint())
       }
 
       const reply = await window.niuvisChat.send(nextMessages)
@@ -46,7 +48,7 @@ export default function ChatPage() {
         },
       ])
     } catch (err) {
-      const message = err instanceof Error ? err.message : '发送失败'
+      const message = formatIpcError(err) || '发送失败'
 
       setError(message)
       setMessages((prev) => [
