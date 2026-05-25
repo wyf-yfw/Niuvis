@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import NonElectronBanner from './components/NonElectronBanner'
 import Sidebar from './components/sidebar/Sidebar'
 import OfficePage from './pages/office/OfficePage'
@@ -9,11 +9,22 @@ import AppsPage from './pages/apps/AppsPage'
 import DocumentsPage from './pages/documents/DocumentsPage'
 import GalleryPage from './pages/gallery/GalleryPage'
 import ComputerPage from './pages/computer/ComputerPage'
+import type { PageId, PageNavigationIntent } from './lib/pageNavigation'
 
-export type PageId = 'office' | 'chat' | 'tasks' | 'skills' | 'apps' | 'documents' | 'gallery' | 'computer'
+export type { PageId }
 
 export default function App() {
   const [activePage, setActivePage] = useState<PageId>('office')
+  const [navigationIntent, setNavigationIntent] = useState<PageNavigationIntent | null>(null)
+
+  const navigate = useCallback((intent: PageNavigationIntent) => {
+    setNavigationIntent(intent)
+    setActivePage(intent.page)
+  }, [])
+
+  const clearNavigationIntent = useCallback(() => {
+    setNavigationIntent(null)
+  }, [])
 
   const renderPage = () => {
     switch (activePage) {
@@ -26,13 +37,28 @@ export default function App() {
       case 'skills':
         return <SkillsPage />
       case 'apps':
-        return <AppsPage />
+        return (
+          <AppsPage
+            navigationIntent={navigationIntent?.page === 'apps' ? navigationIntent : undefined}
+            onNavigationIntentConsumed={clearNavigationIntent}
+          />
+        )
       case 'documents':
-        return <DocumentsPage />
+        return (
+          <DocumentsPage
+            navigationIntent={navigationIntent?.page === 'documents' ? navigationIntent : undefined}
+            onNavigationIntentConsumed={clearNavigationIntent}
+          />
+        )
       case 'gallery':
-        return <GalleryPage />
+        return (
+          <GalleryPage
+            navigationIntent={navigationIntent?.page === 'gallery' ? navigationIntent : undefined}
+            onNavigationIntentConsumed={clearNavigationIntent}
+          />
+        )
       case 'computer':
-        return <ComputerPage />
+        return <ComputerPage onNavigate={navigate} />
       default:
         return <OfficePage />
     }

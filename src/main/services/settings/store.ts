@@ -3,7 +3,12 @@ import path from 'node:path'
 import { safeStorage } from 'electron'
 import type { AppSettings, ModelProfile } from '../../../shared/types/settings.js'
 import { getDb } from '../database/index.js'
-import { createDefaultAppSettings, createDefaultProfile, APP_SETTINGS_KEY } from './defaults.js'
+import {
+  createDefaultAppSettings,
+  createDefaultProfile,
+  mergeAppSettings,
+  APP_SETTINGS_KEY,
+} from './defaults.js'
 import { normalizeChatSettings } from '../../settingsStore.js'
 
 const ENCRYPTED_PREFIX = 'enc:'
@@ -68,7 +73,7 @@ function parseSettingsJson(raw: string): AppSettings {
     throw new Error('无效的设置格式')
   }
 
-  return deserializeSettings(parsed)
+  return deserializeSettings(mergeAppSettings(parsed))
 }
 
 export function getActiveProfile(settings: AppSettings): ModelProfile {

@@ -5,6 +5,7 @@ import { getSettingsPath } from './ipc/context.js'
 import { registerIpcHandlers } from './ipc/registerIpc.js'
 import { initDatabase } from './services/database/index.js'
 import { migrateSettingsFromJsonIfNeeded } from './services/settings/index.js'
+import { bootstrapComputerIndexOnLaunch, stopComputerIndex } from './services/indexer/index.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -57,6 +58,11 @@ app.whenReady().then(async () => {
   }
 
   createWindow()
+  bootstrapComputerIndexOnLaunch()
+})
+
+app.on('before-quit', () => {
+  void stopComputerIndex()
 })
 
 app.on('window-all-closed', () => {

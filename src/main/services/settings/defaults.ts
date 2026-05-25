@@ -1,9 +1,54 @@
 import { randomUUID } from 'node:crypto'
 import os from 'node:os'
-import type { AppSettings, ModelProfile } from '../../../shared/types/settings.js'
+import type { AppSettings, IndexSettings, ModelProfile } from '../../../shared/types/settings.js'
 import { getProviderPreset } from '../../../shared/constants/modelProviders.js'
 
 export const APP_SETTINGS_KEY = 'app_settings_v1'
+
+const DEFAULT_INDEX_EXCLUDES = [
+  '**/.git/**',
+  '**/node_modules/**',
+  '**/.cache/**',
+  '**/.venv/**',
+  '**/isaacsim/**',
+  '**/extscache/**',
+  '**/.omni/**',
+  '**/.conda/**',
+  '**/.npm/**',
+  '**/.cargo/**',
+  '**/target/**',
+  '**/build/**',
+  '**/dist/**',
+]
+
+export function createDefaultIndexSettings(overrides: Partial<IndexSettings> = {}): IndexSettings {
+  return {
+    rootPaths: overrides.rootPaths ?? [os.homedir()],
+    excludePaths: overrides.excludePaths ?? [...DEFAULT_INDEX_EXCLUDES],
+    enableRealtimeWatch: overrides.enableRealtimeWatch ?? false,
+  }
+}
+
+export function mergeAppSettings(parsed: AppSettings): AppSettings {
+  const defaults = createDefaultAppSettings()
+
+  return {
+    ...defaults,
+    ...parsed,
+    profiles: parsed.profiles?.length ? parsed.profiles : defaults.profiles,
+    index: {
+      ...createDefaultIndexSettings(),
+      ...parsed.index,
+      excludePaths: [
+        ...new Set([
+          ...DEFAULT_INDEX_EXCLUDES,
+          ...(parsed.index?.excludePaths ?? []),
+        ]),
+      ],
+      enableRealtimeWatch: parsed.index?.enableRealtimeWatch ?? false,
+    },
+  }
+}
 
 export function createDefaultProfile(overrides: Partial<ModelProfile> = {}): ModelProfile {
   const providerId = overrides.providerId ?? 'openai'
@@ -26,14 +71,7 @@ export function createDefaultAppSettings(overrides: Partial<AppSettings> = {}): 
     version: 1,
     activeProfileId: overrides.activeProfileId ?? defaultProfile.id,
     profiles: overrides.profiles ?? [defaultProfile],
-    index: {
-      rootPaths: overrides.index?.rootPaths ?? [os.homedir()],
-      excludePaths: overrides.index?.excludePaths ?? [
-        '**/.git/**',
-        '**/node_modules/**',
-        '**/.cache/**',
-      ],
-    },
+    index: createDefaultIndexSettings(overrides.index),
     permissions: {
       confirmDelete: overrides.permissions?.confirmDelete ?? true,
       confirmMove: overrides.permissions?.confirmMove ?? true,

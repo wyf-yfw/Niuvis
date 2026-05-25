@@ -30,6 +30,14 @@ const IPC_CHANNELS = {
   system: {
     databaseStatus: 'system:database-status',
   },
+  index: {
+    start: 'index:start',
+    status: 'index:status',
+    stop: 'index:stop',
+    search: 'index:search',
+    list: 'index:list',
+    listDirectory: 'index:list-directory',
+  },
 }
 
 async function invoke(channel, ...args) {
@@ -79,4 +87,13 @@ contextBridge.exposeInMainWorld('niuvisSettings', {
   saveChat: (chat) => invoke(IPC_CHANNELS.settings.saveChat, chat),
   testConnection: (profile) => invoke(IPC_CHANNELS.settings.testConnection, profile),
   pickDirectory: () => invoke(IPC_CHANNELS.settings.pickDirectory),
+})
+
+contextBridge.exposeInMainWorld('niuvisIndex', {
+  start: () => invoke(IPC_CHANNELS.index.start),
+  status: () => invoke(IPC_CHANNELS.index.status),
+  stop: () => invoke(IPC_CHANNELS.index.stop),
+  search: (params) => invoke(IPC_CHANNELS.index.search, params),
+  list: (params) => invoke(IPC_CHANNELS.index.list, params),
+  listDirectory: (directoryPath) => invoke(IPC_CHANNELS.index.listDirectory, directoryPath),
 })

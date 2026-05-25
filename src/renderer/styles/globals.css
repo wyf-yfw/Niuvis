@@ -43,9 +43,52 @@ textarea {
   scrollbar-width: thin;
 }
 
-/* 设置弹窗：Select 下拉默认 portal 到 body，需显式深色 token */
+/*
+ * 设置弹窗深色主题
+ * body 为浅色且设置了 color，子组件即使用 .dark 变量仍可能继承黑色字 —— 需显式 color
+ */
+.niuvis-settings-modal {
+  color: var(--foreground);
+  color-scheme: dark;
+}
+
+.niuvis-settings-modal .label,
+.niuvis-settings-modal [data-slot="label"] {
+  color: var(--foreground);
+}
+
+.niuvis-settings-modal .input,
+.niuvis-settings-modal .textarea,
+.niuvis-settings-modal .select__trigger {
+  background-color: var(--field-background);
+  color: var(--field-foreground);
+}
+
+.niuvis-settings-modal .select__value {
+  color: var(--field-foreground);
+}
+
+.niuvis-settings-modal .select__value[data-placeholder="true"] {
+  color: var(--field-placeholder);
+}
+
+.niuvis-settings-modal .select__indicator {
+  color: var(--field-foreground);
+}
+
+/* Select 下拉（portal 到弹窗内或 body 均需覆盖） */
 .niuvis-settings-popover.select__popover,
 .select__popover.niuvis-settings-popover {
+  color: var(--foreground);
   color-scheme: dark;
+  background-color: var(--overlay);
+}
+
+.niuvis-settings-popover .list-box-item {
+  color: var(--foreground);
+}
+
+.niuvis-settings-popover .list-box-item__indicator {
+  color: var(--default-foreground);
 }
 

@@ -1,3 +1,4 @@
+import { registerIndexIpc } from './index.js'
 import { registerAppsIpc } from './apps.js'
 import { registerChatIpc } from './chat.js'
 import { registerComputerIpc } from './computer.js'
@@ -12,4 +13,5 @@ export function registerIpcHandlers() {
   registerLibraryIpc()
   registerSettingsIpc()
   registerSystemIpc()
+  registerIndexIpc()
 }

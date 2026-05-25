@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Chip, Input, ScrollShadow, Surface, Typography } from '@heroui/react'
+import IndexStatusChip from '../../components/index/IndexStatusChip'
 import { formatIpcError } from '../../lib/ipcError'
+import { indexItemToInstalledApp } from '../../lib/indexMappers'
+import type { PageNavigationIntent } from '../../lib/pageNavigation'
 import { getNonElectronHint } from '../../lib/runtime'
 import type { InstalledApp } from '../../types/niuvis'
 
@@ -47,13 +50,18 @@ function AppIcon({ app }: { app: InstalledApp }) {
   )
 }
 
-export default function AppsPage() {
+interface AppsPageProps {
+  navigationIntent?: PageNavigationIntent
+  onNavigationIntentConsumed?: () => void
+}
+
+export default function AppsPage({ navigationIntent, onNavigationIntentConsumed }: AppsPageProps) {
   const [apps, setApps] = useState<InstalledApp[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
-  const [dataSource, setDataSource] = useState<'cache' | 'scan' | null>(null)
+  const [dataSource, setDataSource] = useState<'cache' | 'scan' | 'index' | null>(null)
 
   const loadApps = async (forceRefresh = false) => {
     setLoading(true)
@@ -62,6 +70,20 @@ export default function AppsPage() {
     try {
       if (!window.niuvisApps) {
         throw new Error(getNonElectronHint())
+      }
+
+      if (!forceRefresh && window.niuvisIndex) {
+        const status = await window.niuvisIndex.status()
+
+        if (status.itemCount > 0) {
+          const indexed = await window.niuvisIndex.list({ kind: 'app', limit: 200 })
+
+          if (indexed.items.length > 0) {
+            setApps(indexed.items.map(indexItemToInstalledApp))
+            setDataSource('index')
+            return
+          }
+        }
       }
 
       const result = await window.niuvisApps.listInstalled({ forceRefresh })
@@ -77,6 +99,16 @@ export default function AppsPage() {
   useEffect(() => {
     void loadApps()
   }, [])
+
+  useEffect(() => {
+    if (!navigationIntent) return
+
+    if (navigationIntent.searchQuery) {
+      setQuery(navigationIntent.searchQuery)
+    }
+
+    onNavigationIntentConsumed?.()
+  }, [navigationIntent, onNavigationIntentConsumed])
 
   const filteredApps = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase()
@@ -118,11 +150,18 @@ export default function AppsPage() {
             </Typography.Heading>
             <Typography.Paragraph className="mt-1 !text-white/50" size="sm">
               从这台电脑读取到 {apps.length} 个已安装程序
-              {dataSource === 'cache' ? ' · 已使用缓存' : dataSource === 'scan' ? ' · 已重新扫描' : ''}
+              {dataSource === 'index'
+                ? ' · 来自本地索引'
+                : dataSource === 'cache'
+                  ? ' · 已使用缓存'
+                  : dataSource === 'scan'
+                    ? ' · 已重新扫描'
+                    : ''}
             </Typography.Paragraph>
           </Surface>
 
           <Surface className="flex items-center gap-3" variant="transparent">
+            <IndexStatusChip onIndexCompleted={() => void loadApps(true)} />
             <Input
               aria-label="搜索应用"
               className="w-72 border border-white/10 bg-[#2a2a2a] text-white placeholder:text-white/40"

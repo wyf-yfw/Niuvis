@@ -4,6 +4,15 @@ import type { DirectoryListing, FileBrowserItem } from '../../shared/types/compu
 import type { IpcErrorCode } from '../../shared/types/ipc'
 import type { LibraryItem, LibraryKind } from '../../shared/types/library'
 import type {
+  ComputerIndexItem,
+  IndexListParams,
+  IndexListResult,
+  IndexSearchParams,
+  IndexSearchResult,
+  IndexStartResult,
+  IndexStatus,
+} from '../../shared/types/computerIndex'
+import type {
   AppSettings,
   ModelConnectionTestResult,
   ModelProfile,
@@ -22,6 +31,15 @@ export type {
   AppSettings,
   ModelProfile,
   ModelConnectionTestResult,
+  ComputerIndexItem,
+  IndexSearchParams,
+  IndexSearchResult,
+  IndexListParams,
+  IndexListResult,
+  IndexDirectoryEntry,
+  IndexDirectoryListing,
+  IndexStatus,
+  IndexStartResult,
 }
 
 declare global {
@@ -51,6 +69,14 @@ declare global {
       saveChat: (chat: ChatModelSettings) => Promise<ChatModelSettings>
       testConnection: (profile: ModelProfile) => Promise<ModelConnectionTestResult>
       pickDirectory: () => Promise<string | null>
+    }
+    niuvisIndex?: {
+      start: () => Promise<IndexStartResult>
+      status: () => Promise<IndexStatus>
+      stop: () => Promise<IndexStatus>
+      search: (params: IndexSearchParams) => Promise<IndexSearchResult>
+      list: (params?: IndexListParams) => Promise<IndexListResult>
+      listDirectory: (directoryPath?: string | null) => Promise<IndexDirectoryListing>
     }
   }
 }

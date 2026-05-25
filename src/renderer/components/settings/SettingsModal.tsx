@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { SettingsPortalProvider } from './SettingsPortalContext'
-import { SETTINGS_DARK_CLASS, SETTINGS_DARK_THEME } from './settingsTheme'
+import { SETTINGS_DARK_THEME, SETTINGS_MODAL_CLASS } from './settingsTheme'
 import {
   Button,
   Label,
@@ -220,12 +220,13 @@ export default function SettingsModal({ state }: SettingsModalProps) {
       <Modal.Backdrop className="bg-black/60 backdrop-blur-sm" isDismissable>
         <Modal.Container className="max-w-[560px]" placement="center" size="lg">
           <Modal.Dialog
-            className={`${SETTINGS_DARK_CLASS} niuvis-settings-modal flex max-h-[min(88vh,720px)] flex-col overflow-hidden p-0 sm:max-w-[560px]`}
+            className={`${SETTINGS_MODAL_CLASS} flex max-h-[min(88vh,720px)] flex-col overflow-hidden p-0 sm:max-w-[560px]`}
             {...SETTINGS_DARK_THEME}
           >
             <div
               ref={setPortalRoot}
-              className="flex min-h-0 flex-1 flex-col"
+              className={`${SETTINGS_MODAL_CLASS} flex min-h-0 flex-1 flex-col`}
+              {...SETTINGS_DARK_THEME}
             >
             <SettingsPortalProvider container={portalRoot}>
             <Modal.Header className="shrink-0 border-b border-border px-6 py-5">
@@ -440,7 +441,7 @@ export default function SettingsModal({ state }: SettingsModalProps) {
 
                         <SettingsTextAreaField
                           label="排除规则"
-                          description="每行一条，支持 ** 通配符"
+                          description="每行一条，支持 ** 通配符（已默认排除 isaacsim、node_modules 等）"
                           value={settings.index.excludePaths.join('\n')}
                           onChange={(event) =>
                             updateSettings((current) => ({
@@ -455,6 +456,37 @@ export default function SettingsModal({ state }: SettingsModalProps) {
                             }))
                           }
                         />
+
+                        <Surface
+                          className="flex items-center justify-between gap-4 rounded-xl border border-border px-3 py-3"
+                          variant="transparent"
+                        >
+                          <Surface variant="transparent">
+                            <Typography className="text-sm text-foreground" type="body-sm">
+                              实时文件监听
+                            </Typography>
+                            <Typography.Paragraph className="mt-1 text-muted" size="xs">
+                              默认关闭。对整个家目录监听会耗尽系统 watcher 并导致卡顿；关闭后索引仍保存在
+                              SQLite，可点击索引状态重新扫描。
+                            </Typography.Paragraph>
+                          </Surface>
+                          <Switch
+                            isSelected={settings.index.enableRealtimeWatch === true}
+                            onChange={(selected) =>
+                              updateSettings((current) => ({
+                                ...current,
+                                index: {
+                                  ...current.index,
+                                  enableRealtimeWatch: selected,
+                                },
+                              }))
+                            }
+                          >
+                            <Switch.Control>
+                              <Switch.Thumb />
+                            </Switch.Control>
+                          </Switch>
+                        </Surface>
                       </SettingsSection>
 
                       <SettingsSection

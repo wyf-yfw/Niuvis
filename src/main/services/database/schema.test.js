@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { openDatabaseAt, resetDatabaseForTests } from '../../../../dist/main/services/database/index.js'
 import {
-  searchComputerIndexFts,
+  searchComputerIndex,
   upsertComputerIndexItem,
 } from '../../../../dist/main/services/database/indexItems.js'
 import { MIGRATION_FILES } from '../../../../dist/main/services/database/migrate.js'
@@ -70,7 +70,7 @@ test('upsertComputerIndexItem syncs fts search results', () => {
       db,
     )
 
-    const results = searchComputerIndexFts('budget', 10, db)
+    const results = searchComputerIndex({ query: 'budget', limit: 10 }, db).items
 
     assert.equal(results.length, 1)
     assert.equal(results[0].name, 'budget-plan.md')
@@ -87,9 +87,36 @@ test('upsertComputerIndexItem syncs fts search results', () => {
 
     assert.equal(updated.path, '/tmp/budget-plan.md')
 
-    const afterUpdate = searchComputerIndexFts('updated', 10, db)
+    const afterUpdate = searchComputerIndex({ query: 'updated', limit: 10 }, db).items
 
     assert.equal(afterUpdate.length, 1)
+  } finally {
+    resetDatabaseForTests()
+    fs.rmSync(tempDir, { recursive: true, force: true })
+  }
+})
+
+test('searchComputerIndex matches Chinese keywords via LIKE fallback', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'niuvis-schema-cjk-'))
+  const dbPath = path.join(tempDir, 'cjk.db')
+
+  try {
+    const db = openDatabaseAt(dbPath)
+
+    upsertComputerIndexItem(
+      {
+        kind: 'document',
+        name: '季度报告.pdf',
+        path: '/home/user/季度报告.pdf',
+        contentSnippet: '办公软件采购说明与预算',
+      },
+      db,
+    )
+
+    const results = searchComputerIndex({ query: '办公', limit: 10 }, db).items
+
+    assert.equal(results.length, 1)
+    assert.equal(results[0].name, '季度报告.pdf')
   } finally {
     resetDatabaseForTests()
     fs.rmSync(tempDir, { recursive: true, force: true })

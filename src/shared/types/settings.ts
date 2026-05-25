@@ -18,6 +18,11 @@ export interface ModelProfile {
 export interface IndexSettings {
   rootPaths: string[]
   excludePaths: string[]
+  /**
+   * 是否启用 chokidar 实时监听。默认 false，避免对整个家目录 inotify 导致 ENOSPC 与卡顿。
+   * 关闭后索引仍持久化在 SQLite，可手动重新扫描更新。
+   */
+  enableRealtimeWatch?: boolean
 }
 
 export interface PermissionSettings {

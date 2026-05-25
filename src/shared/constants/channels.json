@@ -26,5 +26,13 @@
   },
   "system": {
     "databaseStatus": "system:database-status"
+  },
+  "index": {
+    "start": "index:start",
+    "status": "index:status",
+    "stop": "index:stop",
+    "search": "index:search",
+    "list": "index:list",
+    "listDirectory": "index:list-directory"
   }
 }

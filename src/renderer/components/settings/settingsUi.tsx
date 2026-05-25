@@ -15,7 +15,13 @@ import {
 import { MODEL_PROVIDER_PRESETS } from '../../../shared/constants/modelProviders'
 import type { ModelProviderId } from '../../types/niuvis'
 import { useSettingsPortalContainer } from './SettingsPortalContext'
-import { SETTINGS_DARK_CLASS, SETTINGS_DARK_THEME, settingsPopoverClassName } from './settingsTheme'
+import {
+  SETTINGS_DARK_CLASS,
+  SETTINGS_DARK_THEME,
+  settingsFieldClassName,
+  settingsListItemClassName,
+  settingsPopoverClassName,
+} from './settingsTheme'
 
 interface SettingsSectionProps {
   title: string
@@ -33,7 +39,7 @@ export function SettingsSection({
   className = '',
 }: SettingsSectionProps) {
   return (
-    <Card className={`w-full ${className}`} variant="tertiary">
+    <Card className={`w-full ${className}`} variant="secondary">
       <Card.Header className="flex flex-row items-start justify-between gap-3 space-y-0 pb-0">
         <div className="min-w-0 flex-1">
           <Card.Title className="text-sm font-medium">{title}</Card.Title>
@@ -55,7 +61,7 @@ export function SettingsTextField({ label, description, ...inputProps }: Setting
   return (
     <TextField className="w-full" fullWidth>
       <Label>{label}</Label>
-      <Input fullWidth variant="primary" {...inputProps} />
+      <Input className={settingsFieldClassName} fullWidth variant="primary" {...inputProps} />
       {description ? <Description>{description}</Description> : null}
     </TextField>
   )
@@ -74,7 +80,13 @@ export function SettingsTextAreaField({
   return (
     <TextField className="w-full" fullWidth>
       <Label>{label}</Label>
-      <TextArea fullWidth variant="primary" rows={4} {...textareaProps} />
+      <TextArea
+        className={settingsFieldClassName}
+        fullWidth
+        variant="primary"
+        rows={4}
+        {...textareaProps}
+      />
       {description ? <Description>{description}</Description> : null}
     </TextField>
   )
@@ -91,7 +103,7 @@ export function SettingsProviderSelect({ value, onChange }: SettingsProviderSele
   return (
     <Select
       className="w-full"
-      variant="secondary"
+      variant="primary"
       placeholder="选择模型提供商"
       selectedKey={value}
       onSelectionChange={(key) => {
@@ -101,18 +113,23 @@ export function SettingsProviderSelect({ value, onChange }: SettingsProviderSele
       }}
     >
       <Label>模型提供商</Label>
-      <Select.Trigger>
-        <Select.Value />
-        <Select.Indicator />
+      <Select.Trigger className={settingsFieldClassName}>
+        <Select.Value className="text-field-foreground" />
+        <Select.Indicator className="text-field-foreground" />
       </Select.Trigger>
       <Select.Popover
         UNSTABLE_portalContainer={portalContainer ?? undefined}
         className={settingsPopoverClassName}
         {...SETTINGS_DARK_THEME}
       >
-        <ListBox>
+        <ListBox className="text-foreground">
           {MODEL_PROVIDER_PRESETS.map((preset) => (
-            <ListBox.Item key={preset.id} id={preset.id} textValue={preset.label}>
+            <ListBox.Item
+              key={preset.id}
+              id={preset.id}
+              className={settingsListItemClassName}
+              textValue={preset.label}
+            >
               {preset.label}
               <ListBox.ItemIndicator />
             </ListBox.Item>
