@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { safeStorage } from 'electron'
+import type { ChatModelSettings } from '../../../shared/types/chat.js'
 import type { AppSettings, ModelProfile } from '../../../shared/types/settings.js'
 import { getDb } from '../database/index.js'
 import {
@@ -89,7 +90,8 @@ export function getActiveChatConfig(settings: AppSettings) {
     apiKey: profile.apiKey,
     baseUrl: profile.baseUrl,
     model: profile.model,
-  })
+    apiMode: profile.apiMode,
+  }) as ChatModelSettings
 }
 
 export async function migrateSettingsFromJsonIfNeeded({

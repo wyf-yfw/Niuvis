@@ -35,7 +35,10 @@ export function mergeAppSettings(parsed: AppSettings): AppSettings {
   return {
     ...defaults,
     ...parsed,
-    profiles: parsed.profiles?.length ? parsed.profiles : defaults.profiles,
+    profiles: (parsed.profiles?.length ? parsed.profiles : defaults.profiles).map((profile) => ({
+      ...profile,
+      apiMode: profile.apiMode === 'responses' ? 'responses' : 'chat',
+    })),
     index: {
       ...createDefaultIndexSettings(),
       ...parsed.index,
@@ -61,6 +64,7 @@ export function createDefaultProfile(overrides: Partial<ModelProfile> = {}): Mod
     apiKey: overrides.apiKey ?? '',
     baseUrl: overrides.baseUrl ?? preset.defaultBaseUrl,
     model: overrides.model ?? preset.defaultModel,
+    apiMode: overrides.apiMode === 'responses' ? 'responses' : 'chat',
   }
 }
 

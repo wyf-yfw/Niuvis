@@ -24,7 +24,7 @@ export async function indexInstalledApps() {
         category: app.category,
         icon: app.icon,
         iconDataUrl: app.iconDataUrl,
-        iconPath: app.icon,
+        iconPath: app.iconPath ?? app.icon,
         desktopPath: app.path,
         appId: app.id,
       }),

@@ -1,151 +1,424 @@
-import { useState } from 'react'
-import { Button, Input, ScrollShadow, Avatar } from '@heroui/react'
-import { Send } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button, Chip, Surface, Typography } from '@heroui/react'
+import { ArrowDown, MessageSquare } from 'lucide-react'
+import ChatMessageBubble from '../../components/chat/ChatMessageBubble'
+import ChatComposer from '../../components/chat/ChatComposer'
+import CitationPreviewModal from '../../components/chat/CitationPreviewModal'
+import ToolConfirmCard from '../../components/confirm/ToolConfirmCard'
 import { formatIpcError } from '../../lib/ipcError'
 import { getNonElectronHint } from '../../lib/runtime'
-import type { ChatMessage } from '../../types/niuvis'
+import type { AgentAttachment, AgentRunHandle, AgentStreamEvent, FilePreviewResult } from '../../../shared/types/agent'
+import type { ChatCitation, ChatMessage, ChatModelSettings } from '../../../shared/types/chat'
+import type { PendingToolCall } from '../../../shared/types/tools'
 
-function createMessageId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+const SCROLL_BOTTOM_THRESHOLD = 80
+
+function estimateTokens(messages: ChatMessage[]) {
+  const chars = messages.reduce((sum, message) => sum + message.content.length, 0)
+  return Math.max(1, Math.ceil(chars / 4))
+}
+
+function isNearScrollBottom(element: HTMLElement, threshold = SCROLL_BOTTOM_THRESHOLD) {
+  return element.scrollHeight - element.scrollTop - element.clientHeight <= threshold
 }
 
 export default function ChatPage() {
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
+  const [attachments, setAttachments] = useState<AgentAttachment[]>([])
   const [sending, setSending] = useState(false)
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const [streamingContent, setStreamingContent] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [pendingTools, setPendingTools] = useState<PendingToolCall[]>([])
+  const [confirmBusy, setConfirmBusy] = useState(false)
+  const [chatModel, setChatModel] = useState<ChatModelSettings | null>(null)
+  const [previewCitation, setPreviewCitation] = useState<ChatCitation | null>(null)
+  const [filePreview, setFilePreview] = useState<FilePreviewResult | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [bootstrapping, setBootstrapping] = useState(true)
+  const [pinnedToBottom, setPinnedToBottom] = useState(true)
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const shouldAutoScrollRef = useRef(true)
+  const activeRunIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    activeRunIdRef.current = activeRunId
+  }, [activeRunId])
+
+  const tokenEstimate = useMemo(() => estimateTokens(messages), [messages])
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    container.scrollTo({ top: container.scrollHeight, behavior })
+  }, [])
+
+  const syncScrollPinState = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const nearBottom = isNearScrollBottom(container)
+    shouldAutoScrollRef.current = nearBottom
+    setPinnedToBottom(nearBottom)
+  }, [])
+
+  const handleScroll = useCallback(() => {
+    syncScrollPinState()
+  }, [syncScrollPinState])
+
+  const jumpToBottom = useCallback(() => {
+    shouldAutoScrollRef.current = true
+    setPinnedToBottom(true)
+    scrollToBottom('smooth')
+  }, [scrollToBottom])
+
+  const loadConversation = useCallback(async (id: string) => {
+    if (!window.niuvisConversations?.get) return
+
+    const detail = await window.niuvisConversations.get(id)
+    setConversationId(id)
+    setMessages(detail.messages)
+    setStreamingContent('')
+    setError(null)
+  }, [])
+
+  const ensureSingleConversation = useCallback(async () => {
+    if (!window.niuvisConversations?.list || !window.niuvisConversations?.create) {
+      setBootstrapping(false)
+      return
+    }
+
+    try {
+      const list = await window.niuvisConversations.list()
+
+      if (list.length > 0) {
+        await loadConversation(list[0].id)
+      } else {
+        const created = await window.niuvisConversations.create('对话')
+        await loadConversation(created.id)
+      }
+    } catch (err) {
+      setError(formatIpcError(err) || '加载对话失败')
+    } finally {
+      setBootstrapping(false)
+    }
+  }, [loadConversation])
+
+  const refreshPending = useCallback(async () => {
+    if (!window.niuvisAgent?.pending) return
+
+    try {
+      const pending = await window.niuvisAgent.pending()
+      setPendingTools(pending)
+    } catch {
+      // 轮询失败时静默
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!window.niuvisSettings?.getChat) return
+
+    void window.niuvisSettings.getChat().then(setChatModel).catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    void ensureSingleConversation()
+  }, [ensureSingleConversation])
+
+  useEffect(() => {
+    void refreshPending()
+    const timer = setInterval(() => {
+      void refreshPending()
+    }, 2500)
+
+    return () => clearInterval(timer)
+  }, [refreshPending])
+
+  useEffect(() => {
+    if (!window.niuvisAgent?.onStream) return
+
+    const unsubscribe = window.niuvisAgent.onStream((event: AgentStreamEvent) => {
+      if (activeRunIdRef.current && event.runId !== activeRunIdRef.current) {
+        return
+      }
+
+      switch (event.type) {
+        case 'assistant_delta':
+          if (event.delta) {
+            setStreamingContent((prev) => prev + event.delta)
+          }
+          break
+        case 'tool_awaiting_approval':
+          void refreshPending()
+          break
+        case 'assistant_done':
+        case 'run_done':
+          setStreamingContent('')
+          setSending(false)
+          setActiveRunId(null)
+          if (event.conversationId) {
+            void loadConversation(event.conversationId)
+          }
+          void refreshPending()
+          break
+        case 'run_error':
+          setStreamingContent('')
+          setSending(false)
+          setActiveRunId(null)
+          setError(event.error ?? '运行失败')
+          if (event.conversationId) {
+            void loadConversation(event.conversationId)
+          }
+          break
+        case 'run_stopped':
+          setStreamingContent('')
+          setSending(false)
+          setActiveRunId(null)
+          if (event.conversationId) {
+            void loadConversation(event.conversationId)
+          }
+          break
+        default:
+          break
+      }
+    })
+
+    return unsubscribe
+  }, [loadConversation, refreshPending])
+
+  useEffect(() => {
+    if (!shouldAutoScrollRef.current) return
+    scrollToBottom(streamingContent ? 'auto' : 'smooth')
+  }, [messages, streamingContent, pendingTools, scrollToBottom])
 
   const handleSend = async () => {
     const content = input.trim()
 
-    if (!content || sending) return
+    if ((!content && attachments.length === 0) || sending || !conversationId) return
 
-    const userMessage: ChatMessage = {
-      id: createMessageId(),
-      role: 'user',
-      content,
+    if (!window.niuvisAgent?.run) {
+      setError(getNonElectronHint())
+      return
     }
-    const nextMessages = [...messages, userMessage]
 
-    setMessages(nextMessages)
-    setInput('')
+    shouldAutoScrollRef.current = true
+    setPinnedToBottom(true)
+
     setSending(true)
+    setError(null)
+    setInput('')
+    const sentAttachments = [...attachments]
+    setAttachments([])
+
+    requestAnimationFrame(() => scrollToBottom('smooth'))
+
+    try {
+      const handle: AgentRunHandle = await window.niuvisAgent.run({
+        conversationId,
+        message: content,
+        attachments: sentAttachments,
+      })
+
+      setActiveRunId(handle.runId)
+      activeRunIdRef.current = handle.runId
+      setStreamingContent('')
+
+      await loadConversation(handle.conversationId)
+    } catch (err) {
+      setSending(false)
+      setError(formatIpcError(err) || '发送失败')
+    }
+  }
+
+  const handleStop = async () => {
+    if (!activeRunId || !window.niuvisAgent?.stop) return
+
+    await window.niuvisAgent.stop(activeRunId)
+    setSending(false)
+    setActiveRunId(null)
+    setStreamingContent('')
+  }
+
+  const handleApprove = async (pending: PendingToolCall, rememberMinutes?: number) => {
+    if (!window.niuvisAgent?.approve) return
+
+    setConfirmBusy(true)
     setError(null)
 
     try {
-      if (!window.niuvisChat) {
-        throw new Error(getNonElectronHint())
-      }
-
-      const reply = await window.niuvisChat.send(nextMessages)
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMessageId(),
-          role: 'assistant',
-          content: reply,
-        },
-      ])
+      await window.niuvisAgent.approve({
+        toolCallId: pending.id,
+        rememberMinutes,
+      })
+      setPendingTools((items) => items.filter((item) => item.id !== pending.id))
     } catch (err) {
-      const message = formatIpcError(err) || '发送失败'
-
-      setError(message)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMessageId(),
-          role: 'assistant',
-          content: `发送失败：${message}`,
-        },
-      ])
+      setError(formatIpcError(err) || '确认失败')
     } finally {
-      setSending(false)
+      setConfirmBusy(false)
+      void refreshPending()
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  const handleReject = async (pending: PendingToolCall) => {
+    if (!window.niuvisAgent?.reject) return
+
+    setConfirmBusy(true)
+    setError(null)
+
+    try {
+      await window.niuvisAgent.reject({ toolCallId: pending.id, reason: '用户已拒绝' })
+      setPendingTools((items) => items.filter((item) => item.id !== pending.id))
+    } catch (err) {
+      setError(formatIpcError(err) || '拒绝失败')
+    } finally {
+      setConfirmBusy(false)
+      void refreshPending()
     }
   }
+
+  const handleCitationClick = async (citation: ChatCitation) => {
+    setPreviewCitation(citation)
+    setPreviewOpen(true)
+    setFilePreview(null)
+
+    if (!window.niuvisAgent?.previewFile) return
+
+    try {
+      const preview = await window.niuvisAgent.previewFile(citation.path)
+      setFilePreview(preview)
+    } catch {
+      setFilePreview(null)
+    }
+  }
+
+  const streamingMessage: ChatMessage | null =
+    streamingContent.trim().length > 0
+      ? {
+          id: 'streaming',
+          role: 'assistant',
+          content: streamingContent,
+        }
+      : null
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-[#212121]">
-      <ScrollShadow className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto py-6 px-4">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-              <h2 className="text-2xl font-semibold mb-2 text-white">Niuvis 对话</h2>
-              <p>点击左下角设置按钮配置模型后即可开始对话。</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : ''}`}
-                >
-                  {msg.role === 'assistant' && (
-                    <Avatar className="bg-green-600 text-white shrink-0" size="sm">
-                      <Avatar.Fallback>AI</Avatar.Fallback>
-                    </Avatar>
-                  )}
-                  <div
-                    className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                      msg.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-[#2f2f2f] text-gray-200'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                  {msg.role === 'user' && (
-                    <Avatar className="bg-blue-600 text-white shrink-0" size="sm">
-                      <Avatar.Fallback>U</Avatar.Fallback>
-                    </Avatar>
-                  )}
-                </div>
-              ))}
-              {sending && (
-                <div className="flex gap-4">
-                  <Avatar className="bg-green-600 text-white shrink-0" size="sm">
-                    <Avatar.Fallback>AI</Avatar.Fallback>
-                  </Avatar>
-                  <div className="max-w-[70%] rounded-2xl bg-[#2f2f2f] px-4 py-3 text-gray-300">
-                    <p>思考中...</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </ScrollShadow>
+    <Surface className="flex h-screen flex-1 flex-col bg-[#212121]" variant="transparent">
+      <Surface
+        className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3"
+        variant="transparent"
+      >
+        <MessageSquare className="size-5 shrink-0 text-white/70" />
+        <Typography className="font-medium !text-white" type="body-sm">
+          Niuvis 对话
+        </Typography>
+        {chatModel?.model && (
+          <Chip className="border border-white/10" size="sm" variant="secondary">
+            {chatModel.model}
+          </Chip>
+        )}
+        <Chip className="border border-white/10" size="sm" variant="soft">
+          ~{tokenEstimate} tokens
+        </Chip>
+      </Surface>
 
-      <div className="border-t border-[#2f2f2f] bg-[#2f2f2f]">
-        <div className="max-w-3xl mx-auto p-4">
-          <div className="flex gap-3 items-end">
-            <Input
-              className="flex-1 border border-[#4a4a4a] bg-[#3a3a3a] text-white placeholder:text-white/40"
-              placeholder="输入消息..."
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              variant="secondary"
-            />
-            <Button
-              isIconOnly
-              className="bg-blue-600 hover:bg-blue-700"
-              onPress={handleSend}
-              isDisabled={!input.trim() || sending}
+      <Surface className="relative min-h-0 flex-1" variant="transparent">
+        <div
+          ref={scrollContainerRef}
+          className="niuvis-chat-scroll h-full overflow-y-auto"
+          onScroll={handleScroll}
+        >
+          <Surface className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6" variant="transparent">
+          {bootstrapping && (
+            <Typography className="text-center !text-white/45" type="body-sm">
+              加载对话中…
+            </Typography>
+          )}
+
+          {!bootstrapping && messages.length === 0 && !streamingMessage && pendingTools.length === 0 && (
+            <Surface
+              className="flex h-[50vh] flex-col items-center justify-center gap-2"
+              variant="transparent"
             >
-              <Send className="size-4" />
-            </Button>
-          </div>
-          {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
+              <Typography className="text-2xl font-semibold !text-white" type="body-sm">
+                开始对话
+              </Typography>
+              <Typography className="text-center !text-white/50" type="body-sm">
+                在设置中配置模型后，可搜索文件、整理目录并让 Agent 自动调用工具。
+              </Typography>
+            </Surface>
+          )}
+
+          {pendingTools.map((pending) => (
+            <ToolConfirmCard
+              key={pending.id}
+              busy={confirmBusy}
+              pending={pending}
+              onApprove={(rememberMinutes) => void handleApprove(pending, rememberMinutes)}
+              onReject={() => void handleReject(pending)}
+            />
+          ))}
+
+          {messages
+            .filter((message) => message.role === 'user' || message.role === 'assistant')
+            .map((message) => (
+              <ChatMessageBubble
+                key={message.id}
+                message={message}
+                onCitationClick={(citation) => void handleCitationClick(citation)}
+              />
+            ))}
+
+          {streamingMessage && (
+            <ChatMessageBubble message={streamingMessage} streaming onCitationClick={undefined} />
+          )}
+
+          </Surface>
         </div>
-      </div>
-    </div>
+
+        {!pinnedToBottom && (
+          <Button
+            className="absolute bottom-4 right-6 border border-white/15 bg-[#2f2f2f] text-white shadow-lg"
+            size="sm"
+            variant="secondary"
+            onPress={jumpToBottom}
+          >
+            <ArrowDown className="size-4" />
+            回到底部
+          </Button>
+        )}
+      </Surface>
+
+      {error && (
+        <Typography className="px-4 pb-2 !text-red-300" type="body-sm">
+          {error}
+        </Typography>
+      )}
+
+      <ChatComposer
+        attachments={attachments}
+        sending={sending || bootstrapping}
+        value={input}
+        onAttachFiles={(files) => setAttachments((prev) => [...prev, ...files])}
+        onChange={setInput}
+        onRemoveAttachment={(path) =>
+          setAttachments((prev) => prev.filter((file) => file.path !== path))
+        }
+        onSend={() => void handleSend()}
+        onStop={() => void handleStop()}
+      />
+
+      <CitationPreviewModal
+        citation={previewCitation}
+        isOpen={previewOpen}
+        preview={filePreview}
+        onClose={() => {
+          setPreviewOpen(false)
+          setPreviewCitation(null)
+        }}
+      />
+    </Surface>
   )
 }

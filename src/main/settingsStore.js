@@ -7,10 +7,13 @@ export const DEFAULT_CHAT_BASE_URL = 'https://api.openai.com/v1'
 export function normalizeChatSettings(raw = {}) {
   const baseUrl = String(raw.baseUrl ?? '').trim()
 
+  const apiMode = raw.apiMode === 'responses' ? 'responses' : 'chat'
+
   return {
     apiKey: String(raw.apiKey ?? '').trim(),
     baseUrl: baseUrl || DEFAULT_CHAT_BASE_URL,
     model: String(raw.model ?? '').trim(),
+    apiMode,
   }
 }
 
@@ -24,6 +27,11 @@ export function resolveChatConfig({ env = process.env, stored = {} } = {}) {
       ? saved.baseUrl
       : env.NIUVIS_CHAT_BASE_URL || env.OPENAI_BASE_URL || DEFAULT_CHAT_BASE_URL,
     model: saved.model || env.NIUVIS_CHAT_MODEL || env.OPENAI_MODEL || '',
+    apiMode: hasSavedChat
+      ? saved.apiMode
+      : env.NIUVIS_CHAT_API_MODE === 'responses'
+        ? 'responses'
+        : 'chat',
   }
 }
 

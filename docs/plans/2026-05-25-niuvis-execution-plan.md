@@ -189,6 +189,8 @@
 
 ## 6. P3 · 工具层与安全运行时
 
+> **状态：已完成（2026-05-26）** — Tool Registry（13 个工具）、安全运行时、审计日志、IPC、技能页自动渲染、对话页确认卡片。
+>
 > 目标：把所有 Agent 能做的事**结构化**为工具；危险动作有确认；操作可审计。
 
 ### F3.1 Tool Registry
@@ -261,6 +263,8 @@
 ---
 
 ## 7. P4 · Agent Chat v1
+
+> **状态：已完成（2026-05-26）** — `orchestrator` 多轮工具编排 + `agent:stream` 流式；会话 SQLite 持久化 + 侧栏列表；ChatPage 全 HeroUI（会话栏、消息气泡、工具步骤卡、引用 Modal、Composer）；OpenAI Chat/Responses 双模式 + JSON plan 降级。
 
 > 目标：Chat 从单轮直连升级为「**多轮 + 工具调用 + 流式 + 引用 + 持久化**」。
 

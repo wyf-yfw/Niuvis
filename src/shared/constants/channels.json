@@ -34,5 +34,25 @@
     "search": "index:search",
     "list": "index:list",
     "listDirectory": "index:list-directory"
+  },
+  "tools": {
+    "list": "tools:list",
+    "invoke": "tools:invoke"
+  },
+  "agent": {
+    "pending": "agent:pending",
+    "approve": "agent:approve",
+    "reject": "agent:reject",
+    "run": "agent:run",
+    "stop": "agent:stop",
+    "previewFile": "agent:preview-file"
+  },
+  "conversations": {
+    "list": "conversations:list",
+    "get": "conversations:get",
+    "create": "conversations:create",
+    "update": "conversations:update",
+    "delete": "conversations:delete",
+    "search": "conversations:search"
   }
 }

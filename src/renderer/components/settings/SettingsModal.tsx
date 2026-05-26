@@ -20,6 +20,7 @@ import type { AppSettings, ModelProfile, ModelProviderId } from '../../types/niu
 import {
   SettingsMessage,
   SettingsProfileGroup,
+  SettingsApiModeSelect,
   SettingsProviderSelect,
   SettingsSection,
   SettingsTextAreaField,
@@ -298,6 +299,16 @@ export default function SettingsModal({ state }: SettingsModalProps) {
                             <SettingsProviderSelect
                               value={activeProfile.providerId}
                               onChange={handleProviderChange}
+                            />
+
+                            <SettingsApiModeSelect
+                              value={activeProfile.apiMode ?? 'chat'}
+                              onChange={(apiMode) =>
+                                updateActiveProfile((profile) => ({
+                                  ...profile,
+                                  apiMode,
+                                }))
+                              }
                             />
 
                             <SettingsTextField

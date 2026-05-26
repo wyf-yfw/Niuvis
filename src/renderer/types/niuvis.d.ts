@@ -1,5 +1,18 @@
 import type { InstalledApp, InstalledAppsResult } from '../../shared/types/apps'
-import type { ChatMessage, ChatModelSettings } from '../../shared/types/chat'
+import type {
+  AgentAttachment,
+  AgentRunHandle,
+  AgentRunRequest,
+  AgentStreamEvent,
+  FilePreviewResult,
+} from '../../shared/types/agent'
+import type {
+  ChatCitation,
+  ChatMessage,
+  ChatModelSettings,
+  ConversationDetail,
+  ConversationSummary,
+} from '../../shared/types/chat'
 import type { DirectoryListing, FileBrowserItem } from '../../shared/types/computer'
 import type { IpcErrorCode } from '../../shared/types/ipc'
 import type { LibraryItem, LibraryKind } from '../../shared/types/library'
@@ -17,6 +30,14 @@ import type {
   ModelConnectionTestResult,
   ModelProfile,
 } from '../../shared/types/settings'
+import type {
+  PendingToolCall,
+  ToolApproveRequest,
+  ToolDefinitionSummary,
+  ToolInvokeRequest,
+  ToolInvokeResult,
+  ToolRejectRequest,
+} from '../../shared/types/tools'
 
 export type {
   InstalledApp,
@@ -77,6 +98,31 @@ declare global {
       search: (params: IndexSearchParams) => Promise<IndexSearchResult>
       list: (params?: IndexListParams) => Promise<IndexListResult>
       listDirectory: (directoryPath?: string | null) => Promise<IndexDirectoryListing>
+    }
+    niuvisTools?: {
+      list: () => Promise<ToolDefinitionSummary[]>
+      invoke: (request: ToolInvokeRequest) => Promise<ToolInvokeResult>
+    }
+    niuvisAgent?: {
+      pending: () => Promise<PendingToolCall[]>
+      approve: (request: ToolApproveRequest) => Promise<ToolInvokeResult>
+      reject: (request: ToolRejectRequest) => Promise<ToolInvokeResult>
+      run: (request: AgentRunRequest) => Promise<AgentRunHandle>
+      stop: (runId: string) => Promise<{ stopped: boolean }>
+      previewFile: (filePath: string) => Promise<FilePreviewResult>
+      onStream: (listener: (event: AgentStreamEvent) => void) => () => void
+    }
+    niuvisConversations?: {
+      list: () => Promise<ConversationSummary[]>
+      get: (conversationId: string) => Promise<ConversationDetail>
+      create: (title?: string) => Promise<ConversationDetail>
+      update: (payload: {
+        id: string
+        title?: string
+        pinned?: boolean
+      }) => Promise<ConversationDetail | null>
+      delete: (conversationId: string) => Promise<{ deleted: boolean }>
+      search: (query: string) => Promise<ConversationSummary[]>
     }
   }
 }

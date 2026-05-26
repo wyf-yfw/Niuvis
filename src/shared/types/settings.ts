@@ -6,6 +6,8 @@ export type ModelProviderId =
   | 'ollama'
   | 'custom'
 
+import type { OpenAIApiMode } from './openai.js'
+
 export interface ModelProfile {
   id: string
   providerId: ModelProviderId
@@ -13,6 +15,8 @@ export interface ModelProfile {
   apiKey: string
   baseUrl: string
   model: string
+  /** OpenAI SDK：chat.completions 或 responses */
+  apiMode?: OpenAIApiMode
 }
 
 export interface IndexSettings {

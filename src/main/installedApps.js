@@ -16,7 +16,8 @@ const LINUX_ICON_SEARCH_ROOTS = [
   '/usr/local/share/icons',
   '/usr/share/pixmaps',
 ]
-const CACHE_VERSION = 1
+const CACHE_VERSION = 2
+const WINDOWS_ICON_CONCURRENCY = 8
 
 export function normalizeExecCommand(command = '') {
   return command
@@ -260,6 +261,83 @@ export async function listMacApps(
   return dedupeApps(apps)
 }
 
+async function getElectronModules() {
+  const electron = await import('electron')
+  return { app: electron.app, shell: electron.shell }
+}
+
+function getWindowsIconCandidatePaths(filePath, shell) {
+  const candidates = []
+
+  if (filePath.toLowerCase().endsWith('.lnk')) {
+    try {
+      const { target } = shell.readShortcutLink(filePath)
+      if (target) candidates.push(target)
+    } catch {
+      // Broken shortcuts are skipped; .lnk itself may still yield an icon.
+    }
+  }
+
+  candidates.push(filePath)
+  return [...new Set(candidates)]
+}
+
+export async function resolveWindowsIconDataUrl(filePath) {
+  if (!filePath || process.platform !== 'win32') {
+    return { iconPath: '', iconDataUrl: '' }
+  }
+
+  try {
+    const { app, shell } = await getElectronModules()
+
+    for (const candidatePath of getWindowsIconCandidatePaths(filePath, shell)) {
+      try {
+        const image = await app.getFileIcon(candidatePath, { size: 'large' })
+        const iconDataUrl = image.toDataURL()
+
+        if (iconDataUrl?.startsWith('data:image/')) {
+          return { iconPath: candidatePath, iconDataUrl }
+        }
+      } catch {
+        // Try the next candidate path.
+      }
+    }
+  } catch {
+    // Electron is unavailable outside the app process (e.g. plain node tests).
+  }
+
+  return { iconPath: '', iconDataUrl: '' }
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex)
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()))
+  return results
+}
+
+export async function attachWindowsAppIcons(apps, resolveIcon = resolveWindowsIconDataUrl) {
+  return mapWithConcurrency(apps, WINDOWS_ICON_CONCURRENCY, async (app) => {
+    const { iconPath, iconDataUrl } = await resolveIcon(app.path)
+
+    return {
+      ...app,
+      icon: iconPath || app.icon,
+      iconPath,
+      iconDataUrl,
+    }
+  })
+}
+
 async function listWindowsStartMenuApps() {
   const directories = [
     path.join(process.env.ProgramData ?? 'C:\\ProgramData', 'Microsoft\\Windows\\Start Menu\\Programs'),
@@ -303,7 +381,7 @@ async function listWindowsStartMenuApps() {
     await walk(directory)
   }
 
-  return dedupeApps(apps)
+  return attachWindowsAppIcons(dedupeApps(apps))
 }
 
 export async function listInstalledApps() {

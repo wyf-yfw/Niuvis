@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {
+  attachWindowsAppIcons,
   listLinuxDesktopApps,
   loadInstalledApps,
   normalizeExecCommand,
@@ -141,6 +142,25 @@ test('resolveLinuxIconPath supports absolute icon paths and theme directories', 
   }
 })
 
+test('attachWindowsAppIcons enriches apps using the icon resolver', async () => {
+  const apps = [
+    {
+      id: 'chrome',
+      name: 'Google Chrome',
+      path: 'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Google Chrome.lnk',
+      source: 'shortcut',
+    },
+  ]
+
+  const enriched = await attachWindowsAppIcons(apps, async () => ({
+    iconPath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    iconDataUrl: 'data:image/png;base64,chrome',
+  }))
+
+  assert.equal(enriched[0].iconPath, 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe')
+  assert.equal(enriched[0].iconDataUrl, 'data:image/png;base64,chrome')
+})
+
 test('loadInstalledApps returns cache first and refresh overwrites it', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'niuvis-cache-'))
   const cachePath = path.join(root, 'installed-apps-cache.json')
@@ -151,7 +171,7 @@ test('loadInstalledApps returns cache first and refresh overwrites it', async ()
   await writeFile(
     cachePath,
     JSON.stringify({
-      version: 1,
+      version: 2,
       createdAt: '2026-05-25T00:00:00.000Z',
       apps: cachedApps,
     }),

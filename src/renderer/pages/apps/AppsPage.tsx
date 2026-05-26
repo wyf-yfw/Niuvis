@@ -79,9 +79,14 @@ export default function AppsPage({ navigationIntent, onNavigationIntentConsumed 
           const indexed = await window.niuvisIndex.list({ kind: 'app', limit: 200 })
 
           if (indexed.items.length > 0) {
-            setApps(indexed.items.map(indexItemToInstalledApp))
-            setDataSource('index')
-            return
+            const appsFromIndex = indexed.items.map(indexItemToInstalledApp)
+            const hasAnyIcon = appsFromIndex.some((app) => app.iconDataUrl?.startsWith('data:image/'))
+
+            if (hasAnyIcon) {
+              setApps(appsFromIndex)
+              setDataSource('index')
+              return
+            }
           }
         }
       }

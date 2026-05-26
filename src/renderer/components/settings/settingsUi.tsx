@@ -14,6 +14,7 @@ import {
 } from '@heroui/react'
 import { MODEL_PROVIDER_PRESETS } from '../../../shared/constants/modelProviders'
 import type { ModelProviderId } from '../../types/niuvis'
+import type { OpenAIApiMode } from '../../../shared/types/openai'
 import { useSettingsPortalContainer } from './SettingsPortalContext'
 import {
   SETTINGS_DARK_CLASS,
@@ -131,6 +132,68 @@ export function SettingsProviderSelect({ value, onChange }: SettingsProviderSele
               textValue={preset.label}
             >
               {preset.label}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  )
+}
+
+const API_MODE_OPTIONS: { id: OpenAIApiMode; label: string; description: string }[] = [
+  {
+    id: 'chat',
+    label: 'Chat Completions',
+    description: 'POST /chat/completions（兼容 OpenAI、DeepSeek、Ollama 等）',
+  },
+  {
+    id: 'responses',
+    label: 'Responses API',
+    description: 'POST /responses（OpenAI 官方新接口，支持 gpt-4.1 / o 系列等）',
+  },
+]
+
+interface SettingsApiModeSelectProps {
+  value: OpenAIApiMode
+  onChange: (mode: OpenAIApiMode) => void
+}
+
+export function SettingsApiModeSelect({ value, onChange }: SettingsApiModeSelectProps) {
+  const portalContainer = useSettingsPortalContainer()
+
+  return (
+    <Select
+      className="w-full"
+      variant="primary"
+      placeholder="选择 API 格式"
+      selectedKey={value}
+      onSelectionChange={(key) => {
+        if (key === 'chat' || key === 'responses') {
+          onChange(key)
+        }
+      }}
+    >
+      <Label>OpenAI SDK 接口格式</Label>
+      <Select.Trigger className={settingsFieldClassName}>
+        <Select.Value className="text-field-foreground" />
+        <Select.Indicator className="text-field-foreground" />
+      </Select.Trigger>
+      <Select.Popover
+        UNSTABLE_portalContainer={portalContainer ?? undefined}
+        className={settingsPopoverClassName}
+        {...SETTINGS_DARK_THEME}
+      >
+        <ListBox className="text-foreground">
+          {API_MODE_OPTIONS.map((option) => (
+            <ListBox.Item
+              key={option.id}
+              id={option.id}
+              className={settingsListItemClassName}
+              textValue={option.label}
+              description={option.description}
+            >
+              {option.label}
               <ListBox.ItemIndicator />
             </ListBox.Item>
           ))}

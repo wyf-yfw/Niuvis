@@ -38,6 +38,27 @@ const IPC_CHANNELS = {
     list: 'index:list',
     listDirectory: 'index:list-directory',
   },
+  tools: {
+    list: 'tools:list',
+    invoke: 'tools:invoke',
+  },
+  agent: {
+    pending: 'agent:pending',
+    approve: 'agent:approve',
+    reject: 'agent:reject',
+    run: 'agent:run',
+    stop: 'agent:stop',
+    previewFile: 'agent:preview-file',
+    stream: 'agent:stream',
+  },
+  conversations: {
+    list: 'conversations:list',
+    get: 'conversations:get',
+    create: 'conversations:create',
+    update: 'conversations:update',
+    delete: 'conversations:delete',
+    search: 'conversations:search',
+  },
 }
 
 async function invoke(channel, ...args) {
@@ -96,4 +117,36 @@ contextBridge.exposeInMainWorld('niuvisIndex', {
   search: (params) => invoke(IPC_CHANNELS.index.search, params),
   list: (params) => invoke(IPC_CHANNELS.index.list, params),
   listDirectory: (directoryPath) => invoke(IPC_CHANNELS.index.listDirectory, directoryPath),
+})
+
+contextBridge.exposeInMainWorld('niuvisTools', {
+  list: () => invoke(IPC_CHANNELS.tools.list),
+  invoke: (request) => invoke(IPC_CHANNELS.tools.invoke, request),
+})
+
+contextBridge.exposeInMainWorld('niuvisAgent', {
+  pending: () => invoke(IPC_CHANNELS.agent.pending),
+  approve: (request) => invoke(IPC_CHANNELS.agent.approve, request),
+  reject: (request) => invoke(IPC_CHANNELS.agent.reject, request),
+  run: (request) => invoke(IPC_CHANNELS.agent.run, request),
+  stop: (runId) => invoke(IPC_CHANNELS.agent.stop, runId),
+  previewFile: (filePath) => invoke(IPC_CHANNELS.agent.previewFile, filePath),
+  onStream: (listener) => {
+    const handler = (_event, payload) => listener(payload)
+
+    ipcRenderer.on(IPC_CHANNELS.agent.stream, handler)
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.agent.stream, handler)
+    }
+  },
+})
+
+contextBridge.exposeInMainWorld('niuvisConversations', {
+  list: () => invoke(IPC_CHANNELS.conversations.list),
+  get: (conversationId) => invoke(IPC_CHANNELS.conversations.get, conversationId),
+  create: (title) => invoke(IPC_CHANNELS.conversations.create, title),
+  update: (payload) => invoke(IPC_CHANNELS.conversations.update, payload),
+  delete: (conversationId) => invoke(IPC_CHANNELS.conversations.delete, conversationId),
+  search: (query) => invoke(IPC_CHANNELS.conversations.search, query),
 })

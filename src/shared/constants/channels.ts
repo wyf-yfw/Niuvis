@@ -11,3 +11,6 @@ export type IpcChannel =
   | (typeof IPC_CHANNELS.settings)[keyof typeof IPC_CHANNELS.settings]
   | (typeof IPC_CHANNELS.system)[keyof typeof IPC_CHANNELS.system]
   | (typeof IPC_CHANNELS.index)[keyof typeof IPC_CHANNELS.index]
+  | (typeof IPC_CHANNELS.tools)[keyof typeof IPC_CHANNELS.tools]
+  | (typeof IPC_CHANNELS.agent)[keyof typeof IPC_CHANNELS.agent]
+  | (typeof IPC_CHANNELS.conversations)[keyof typeof IPC_CHANNELS.conversations]
